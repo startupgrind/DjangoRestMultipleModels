@@ -213,6 +213,7 @@ class Query(object):
             {"label", "queryset", "serializer", "serializer_kwargs"}
         )
         query = Query(**query_serializer_info)
+        return query
 
     @classmethod
     def new_from_tuple(cls, tuple_):
