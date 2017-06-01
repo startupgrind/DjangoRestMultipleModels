@@ -25,6 +25,22 @@ class MultipleModelMixin(object):
             .....
     ]
 
+    You can also specify a dictionary of keyword arguments for the serializer.
+    In that case, use a dict instead of a tuple. Example:
+
+    queryList = [
+            (querysetA, serializerA, 'labelA'),
+            (querysetB, serializerB, 'labelB'),
+            {
+                "queryset": querysetC,
+                "serializer="serializerC",
+                "serializer_kwargs": {"fields_to_include": ["one", "two"]}
+            },
+            .....
+    ]
+
+
+
     """
 
     objectify = False
@@ -188,7 +204,10 @@ class Query(object):
 
     @classmethod
     def new_from_dict(cls, query_serializer_info):
-        pass
+        assert set(query_serializer_info.keys()).issubset(
+            {"label", "queryset", "serializer", "serializer_kwargs"}
+        )
+        query = Query(**query_serializer_info)
 
     @classmethod
     def new_from_tuple(cls, tuple_):
