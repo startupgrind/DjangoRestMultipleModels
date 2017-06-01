@@ -103,7 +103,12 @@ class MultipleModelMixin(object):
 
             # Run the paired serializer
             context = self.get_serializer_context()
-            data = query.serializer(queryset, many=True, context=context).data
+            data = query.serializer(
+                queryset,
+                many=True,
+                context=context,
+                **query.serializer_kwargs
+            ).data
 
             results = self.format_data(data, query, results)
 
@@ -200,7 +205,7 @@ class Query(object):
         self.serializer = serializer
         self.filter_fn = filter_fn
         self.label = label
-        self.serializer_kwargs = serializer_kwargs
+        self.serializer_kwargs = serializer_kwargs if serializer_kwargs else {}
 
     @classmethod
     def new_from_dict(cls, query_serializer_info):
