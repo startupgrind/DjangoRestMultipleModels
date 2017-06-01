@@ -172,14 +172,28 @@ class MultipleModelMixin(object):
 
 class Query(object):
 
-    def __init__(self, queryset, serializer, label=None, filter_fn=None, ):
+    def __init__(
+        self,
+        queryset,
+        serializer,
+        label=None,
+        filter_fn=None,
+        serializer_kwargs=None
+    ):
         self.queryset = queryset
         self.serializer = serializer
         self.filter_fn = filter_fn
         self.label = label
+        self.serializer_kwargs = serializer_kwargs
+
+    @classmethod
+    def new_from_dict(cls, query_serializer_info):
+        pass
 
     @classmethod
     def new_from_tuple(cls, tuple_):
+        if isinstance(tuple_, dict):
+            return cls.new_from_dict(tuple_)
         try:
             queryset, serializer, label = tuple_
         except ValueError:
