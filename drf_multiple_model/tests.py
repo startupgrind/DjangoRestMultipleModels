@@ -57,13 +57,36 @@ class PoemSerializer(serializers.ModelSerializer):
         model = Poem
         fields = ('title', 'style')
 
+    def __init__(self, *args, **kwargs):
+        fields = kwargs.pop('fields', None)
+        super(PoemSerializer, self).__init__(*args, **kwargs)
+        if fields:
+            for field_name in self.fields.keys():
+                if field_name not in fields:
+                    del self.fields[field_name]
 
 # Views
 
 # For testing that the default settings behave normally
+
+
 class BasicTestView(MultipleModelAPIView):
     queryList = ((Play.objects.all(), PlaySerializer),
                  (Poem.objects.filter(style="Sonnet"), PoemSerializer))
+
+
+class DictQueryListView(MultipleModelAPIView):
+    queryList = (
+        {
+            'queryset': Play.objects.all(),
+            'serializer': PlaySerializer
+        },
+        {
+            'queryset': Poem.objects.filter(style="Sonnet"),
+            'serializer': PoemSerializer,
+            'serializer_kwargs': {'fields': ['title']}
+        }
+    )
 
 
 class TestBrowsableAPIView(BasicTestView):
@@ -238,6 +261,36 @@ class TestMMViews(TestCase):
                  style="Sonnet"),
             Poem(title="A Lover's Complaint",
                  style="Narrative")
+        ])
+
+    def test_dict_representation_with_specific_fields(self):
+        view = DictQueryListView.as_view()
+        request = factory.get('/')
+        with self.assertNumQueries(2):
+            response = view(request).render()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data, [
+            {'play': [
+                {
+                    'title': 'Romeo And Juliet',
+                    'genre': 'Tragedy',
+                    'year': 1597
+                },
+                {
+                    'title': "A Midsummer Night's Dream",
+                    'genre': 'Comedy',
+                    'year': 1600
+                },
+                {'title': 'Julius Caesar', 'genre': 'Tragedy', 'year': 1623},
+                {'title': 'As You Like It', 'genre': 'Comedy', 'year': 1623},
+            ]
+            },
+            {'poem': [
+                {'title': "Shall I compare thee to a summer's day?"},
+                {'title': "As a decrepit father takes delight"}
+            ]}
         ])
 
     def test_defaults(self):
