@@ -25,6 +25,22 @@ class MultipleModelMixin(object):
             .....
     ]
 
+    You can also specify a dictionary of keyword arguments for the serializer.
+    In that case, use a dict instead of a tuple. Example:
+
+    queryList = [
+            (querysetA, serializerA, 'labelA'),
+            (querysetB, serializerB, 'labelB'),
+            {
+                "queryset": querysetC,
+                "serializer": serializerC,
+                "serializer_kwargs": {"fields_to_include": ["one", "two"]}
+            },
+            .....
+    ]
+
+
+
     """
 
     objectify = False
@@ -65,7 +81,8 @@ class MultipleModelMixin(object):
         """
         Wrapper for pagination function.
 
-        By default it just calls paginate_queryset, but can be overwritten for custom functionality
+        By default it just calls paginate_queryset, but can be
+        overwritten for custom functionality
         """
         return self.paginate_queryset(queryList)
 
@@ -74,7 +91,8 @@ class MultipleModelMixin(object):
 
         results = {} if self.objectify else []
 
-        # Iterate through the queryList, run each queryset and serialize the data
+        # Iterate through the queryList, run each queryset and
+        # serialize the data
         for query in queryList:
             if not isinstance(query, Query):
                 query = Query.new_from_tuple(query)
@@ -87,7 +105,12 @@ class MultipleModelMixin(object):
 
             # Run the paired serializer
             context = self.get_serializer_context()
-            data = query.serializer(queryset, many=True, context=context).data
+            data = query.serializer(
+                queryset,
+                many=True,
+                context=context,
+                **query.serializer_kwargs
+            ).data
 
             results = self.format_data(data, query, results)
 
@@ -101,13 +124,13 @@ class MultipleModelMixin(object):
             if page is not None:
                 return self.get_paginated_response(page)
 
-
         if request.accepted_renderer.format == 'html':
             return Response({'data': results})
 
         return Response(results)
 
-    # formats the serialized data based on various view properties (e.g. flat=True)
+    # formats the serialized data based on various view properties
+    # (e.g. flat=True)
     def format_data(self, new_data, query, results):
         # Get the label, unless add_model_type is note set
         label = None
@@ -118,7 +141,9 @@ class MultipleModelMixin(object):
                 label = query.queryset.model.__name__.lower()
 
         if self.flat and self.objectify:
-            raise RuntimeError("Cannot objectify data with flat=True. Try to use flat=False")
+            raise RuntimeError(
+                "Cannot objectify data with flat=True. Try to use flat=False"
+            )
 
         # if flat=True, Organize the data in a flat manner
         elif self.flat:
@@ -130,9 +155,12 @@ class MultipleModelMixin(object):
         # if objectify=True, Organize the data in an object
         elif self.objectify:
             if not label:
-                raise RuntimeError("Cannot objectify data. Try to use objectify=False")
+                raise RuntimeError(
+                    "Cannot objectify data. Try to use objectify=False"
+                )
 
-            # Get paginated data for selected label, if paginating_label is provided
+            # Get paginated data for selected label, if paginating_label
+            # is provided.
             if label == self.paginating_label:
                 paginated_results = self.get_paginated_response(new_data).data
                 paginated_results.pop("results", None)
@@ -172,14 +200,32 @@ class MultipleModelMixin(object):
 
 class Query(object):
 
-    def __init__(self, queryset, serializer, label=None, filter_fn=None, ):
+    def __init__(
+        self,
+        queryset,
+        serializer,
+        label=None,
+        filter_fn=None,
+        serializer_kwargs=None
+    ):
         self.queryset = queryset
         self.serializer = serializer
         self.filter_fn = filter_fn
         self.label = label
+        self.serializer_kwargs = serializer_kwargs if serializer_kwargs else {}
+
+    @classmethod
+    def new_from_dict(cls, query_serializer_info):
+        assert set(query_serializer_info.keys()).issubset(
+            {"label", "queryset", "serializer", "serializer_kwargs"}
+        )
+        query = Query(**query_serializer_info)
+        return query
 
     @classmethod
     def new_from_tuple(cls, tuple_):
+        if isinstance(tuple_, dict):
+            return cls.new_from_dict(tuple_)
         try:
             queryset, serializer, label = tuple_
         except ValueError:
